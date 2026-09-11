@@ -389,18 +389,22 @@ class SharedMediaSessionManager(
             remoteVolumeProvider?.currentVolume = volume
             return
         }
-        remoteVolumePlayerId = player.playerId
+        val boundPlayerId = player.playerId
+        remoteVolumePlayerId = boundPlayerId
+        // The OS keeps its own reference to a provider, so a callback can arrive after
+        // the session has moved to another player. Each provider is bound to the id it
+        // was created for and only dispatches while that id is still the routed one.
         val provider = object : VolumeProviderCompat(
             VOLUME_CONTROL_ABSOLUTE,
             REMOTE_VOLUME_MAX,
             volume,
         ) {
             override fun onAdjustVolume(direction: Int) {
-                dispatchRemoteVolumeAdjust(direction)
+                dispatchRemoteVolumeAdjust(boundPlayerId, direction)
             }
 
             override fun onSetVolumeTo(volume: Int) {
-                dispatchRemoteVolumeSet(volume)
+                dispatchRemoteVolumeSet(boundPlayerId, volume)
             }
         }
         remoteVolumeProvider = provider
@@ -408,17 +412,22 @@ class SharedMediaSessionManager(
         dataSource.remoteVolumeKeysActive.value = true
     }
 
-    /** [VolumeProviderCompat.onAdjustVolume] for the current session player. */
-    private fun dispatchRemoteVolumeAdjust(direction: Int) {
-        val player = currentPlayer()?.takeIf { !it.isLocal } ?: return
+    /** The routed remote player, or null if [boundPlayerId] is no longer the routed one. */
+    private fun routedRemotePlayer(boundPlayerId: String): PlayerData? =
+        currentPlayer()
+            ?.takeIf { !it.isLocal && it.playerId == boundPlayerId && boundPlayerId == remoteVolumePlayerId }
+
+    /** [VolumeProviderCompat.onAdjustVolume] for the provider bound to [boundPlayerId]. */
+    private fun dispatchRemoteVolumeAdjust(boundPlayerId: String, direction: Int) {
+        val player = routedRemotePlayer(boundPlayerId) ?: return
         val isGroupBound = player.childrenBinds.any { it.isBound }
         val action = remoteVolumeAdjustAction(direction, isGroupBound) ?: return
         dataSource.playerAction(player, action)
     }
 
-    /** [VolumeProviderCompat.onSetVolumeTo] for the current session player. */
-    private fun dispatchRemoteVolumeSet(volume: Int) {
-        val player = currentPlayer()?.takeIf { !it.isLocal } ?: return
+    /** [VolumeProviderCompat.onSetVolumeTo] for the provider bound to [boundPlayerId]. */
+    private fun dispatchRemoteVolumeSet(boundPlayerId: String, volume: Int) {
+        val player = routedRemotePlayer(boundPlayerId) ?: return
         val isGroupBound = player.childrenBinds.any { it.isBound }
         dataSource.playerAction(player, remoteVolumeSetAction(volume, isGroupBound))
     }
