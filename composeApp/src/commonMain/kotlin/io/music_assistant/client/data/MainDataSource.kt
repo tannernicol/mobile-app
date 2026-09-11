@@ -350,6 +350,17 @@ class MainDataSource(
         return true
     }
 
+    /**
+     * Personal-fork addition (upstream declined this in mobile-app#767): true while the
+     * phone's hardware volume keys are wired to [nowPlayingPlayer]'s volume instead of the
+     * local stream. Written by the Android media-session layer
+     * ([io.music_assistant.client.services.SharedMediaSessionManager]) whenever it swaps
+     * the session's `VolumeProviderCompat` on or off, and read by the UI to suppress the
+     * "these keys only affect local playback" hint once it is no longer true. Stays false
+     * (and unused) on iOS, where nothing writes to it.
+     */
+    val remoteVolumeKeysActive: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
     fun providerIcon(provider: String): ProviderIconModel? =
         _providersIcons.value[provider.substringBefore("--")]
 

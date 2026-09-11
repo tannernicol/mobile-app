@@ -14,6 +14,7 @@ import android.os.SystemClock
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+import androidx.media.VolumeProviderCompat
 import androidx.media.utils.MediaConstants
 import co.touchlab.kermit.Logger
 import coil3.ImageLoader
@@ -54,6 +55,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * Transport actions advertised on EVERY PlaybackState this manager publishes.
@@ -105,6 +107,14 @@ class SharedMediaSessionManager(
     private var mediaSession: MediaSessionCompat? = null
     private var writerScope: CoroutineScope? = null
     private var refCount = 0
+
+    // Personal-fork addition (upstream declined this in mobile-app#767): the player id
+    // hardware volume keys currently route to via [remoteVolumeProvider], or null while
+    // routed to the local stream. Compared against on every [updateVolumeRouting] call so
+    // a volume tick from the server reuses the existing provider instead of tearing it
+    // down — setPlaybackToRemote() is a real IPC call and would disturb the OS volume UI.
+    private var remoteVolumePlayerId: String? = null
+    private var remoteVolumeProvider: VolumeProviderCompat? = null
 
     // Localized labels, resolved once before the writer collectors start (see
     // [startWriter]). The synchronous writers read these; null only in the brief
@@ -218,6 +228,9 @@ class SharedMediaSessionManager(
             lastBitmap = null
             autoPlayHandler = null
             strings = null
+            remoteVolumePlayerId = null
+            remoteVolumeProvider = null
+            dataSource.remoteVolumeKeysActive.value = false
         }
     }
 
@@ -275,6 +288,7 @@ class SharedMediaSessionManager(
             launchPlaybackWriter(scope)
             launchQueueWriter(scope)
             launchBlockWriter(scope)
+            launchVolumeWriter(scope)
         }
     }
 
@@ -331,6 +345,82 @@ class SharedMediaSessionManager(
                 if (blocked) writeBlockToSession() else liftBlockFromSession()
             }
         }
+    }
+
+    /**
+     * Personal-fork addition (upstream declined this in mobile-app#767 in favor of a
+     * toast — see [io.music_assistant.client.ui.compose.home.MainNavRoot]'s
+     * `players_remote_volume_hint` gate). Spotify-Connect-style hardware volume keys:
+     * local player (or none) → the session drives the phone's own stream as before;
+     * remote player → the rocker drives ITS volume via a [VolumeProviderCompat] whose
+     * callbacks dispatch the app's existing volume actions ([remoteVolumeAdjustAction],
+     * [remoteVolumeSetAction] — group-aware). Same player id on the next emission reuses
+     * the provider instead of recreating it, so a plain volume tick from the server
+     * cannot disturb the OS volume dialog.
+     */
+    private fun launchVolumeWriter(scope: CoroutineScope) {
+        scope.launch {
+            volumeSourcePlayer().collect(::updateVolumeRouting)
+        }
+    }
+
+    /** The player hardware volume keys should control — [currentPlayer], made reactive. */
+    private fun volumeSourcePlayer(): Flow<PlayerData?> =
+        autoHostActive.flatMapLatest { hostActive ->
+            if (hostActive) dataSource.localPlayer else dataSource.nowPlayingPlayer
+        }
+
+    @Synchronized
+    private fun updateVolumeRouting(player: PlayerData?) {
+        val session = mediaSession ?: return
+        if (player == null || player.isLocal) {
+            if (remoteVolumePlayerId != null) {
+                remoteVolumePlayerId = null
+                remoteVolumeProvider = null
+                session.setPlaybackToLocal(AudioManager.STREAM_MUSIC)
+            }
+            dataSource.remoteVolumeKeysActive.value = false
+            return
+        }
+        val volume = player.player.currentVolume?.roundToInt()?.coerceIn(0, REMOTE_VOLUME_MAX)
+            ?: remoteVolumeProvider?.currentVolume
+            ?: 0
+        if (player.playerId == remoteVolumePlayerId) {
+            remoteVolumeProvider?.currentVolume = volume
+            return
+        }
+        remoteVolumePlayerId = player.playerId
+        val provider = object : VolumeProviderCompat(
+            VOLUME_CONTROL_ABSOLUTE,
+            REMOTE_VOLUME_MAX,
+            volume,
+        ) {
+            override fun onAdjustVolume(direction: Int) {
+                dispatchRemoteVolumeAdjust(direction)
+            }
+
+            override fun onSetVolumeTo(volume: Int) {
+                dispatchRemoteVolumeSet(volume)
+            }
+        }
+        remoteVolumeProvider = provider
+        session.setPlaybackToRemote(provider)
+        dataSource.remoteVolumeKeysActive.value = true
+    }
+
+    /** [VolumeProviderCompat.onAdjustVolume] for the current session player. */
+    private fun dispatchRemoteVolumeAdjust(direction: Int) {
+        val player = currentPlayer()?.takeIf { !it.isLocal } ?: return
+        val isGroupBound = player.childrenBinds.any { it.isBound }
+        val action = remoteVolumeAdjustAction(direction, isGroupBound) ?: return
+        dataSource.playerAction(player, action)
+    }
+
+    /** [VolumeProviderCompat.onSetVolumeTo] for the current session player. */
+    private fun dispatchRemoteVolumeSet(volume: Int) {
+        val player = currentPlayer()?.takeIf { !it.isLocal } ?: return
+        val isGroupBound = player.childrenBinds.any { it.isBound }
+        dataSource.playerAction(player, remoteVolumeSetAction(volume, isGroupBound))
     }
 
     // Session source, resolved atomically per mode so a toggle can never pair a stale

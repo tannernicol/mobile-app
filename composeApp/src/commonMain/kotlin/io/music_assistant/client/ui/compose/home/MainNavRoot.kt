@@ -44,6 +44,7 @@ import androidx.savedstate.serialization.SavedStateConfiguration
 import io.music_assistant.client.api.DeepLinkBus
 import io.music_assistant.client.api.DeepLinkDestination
 import io.music_assistant.client.api.ErrorMessageBus
+import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.model.client.ClickContext
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.items.Album
@@ -120,6 +121,7 @@ fun MainNavigationRoot(
     val errorBus: ErrorMessageBus = koinInject()
     val deepLinkBus: DeepLinkBus = koinInject()
     val volumeButtonService: VolumeButtonService = koinInject()
+    val dataSource: MainDataSource = koinInject()
 
     LaunchedEffect(Unit) {
         homeScreenViewModel.links.collectLatest { url -> uriHandler.openUri(url) }
@@ -222,8 +224,13 @@ fun MainNavigationRoot(
 
     val remoteVolumeHint = stringResource(Res.string.players_remote_volume_hint)
     val viewingRemote = data?.selectedPlayer?.isLocal == false
+    // Personal-fork addition (mobile-app#767 upstream declined this): once the hardware
+    // keys are actually wired to the remote player's volume (see
+    // SharedMediaSessionManager.updateVolumeRouting), this hint would be false — the keys
+    // DO affect the remote player now. Stays false on iOS, so the hint is unaffected there.
+    val remoteVolumeKeysActive by dataSource.remoteVolumeKeysActive.collectAsStateWithLifecycle()
     val currentHint by rememberUpdatedState(remoteVolumeHint)
-    val observingRemote by rememberUpdatedState(viewingRemote)
+    val observingRemote by rememberUpdatedState(viewingRemote && !remoteVolumeKeysActive)
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(lifecycleOwner, volumeButtonService) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
