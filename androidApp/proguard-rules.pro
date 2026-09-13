@@ -138,3 +138,9 @@
 # ---------------------------------------------------------------------------
 -keep class com.russhwolf.settings.** { *; }
 -dontwarn com.russhwolf.settings.**
+
+# Room instantiates generated *_Impl databases by reflection through their no-arg
+# constructor. WorkManager (pulled in by Glance for the now-playing widget) ships
+# WorkDatabase_Impl; R8 full mode stripped its <init>() in 0.14.1, so every app
+# start crashed with "Failed to create an instance of androidx.work.impl.WorkDatabase".
+-keep class * extends androidx.room.RoomDatabase { <init>(); }
