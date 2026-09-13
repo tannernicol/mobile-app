@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Music Assistant</string>
+    <!-- AppWidgetProviderInfo requires plain Android string resources (read by the
+         system widget picker without our process running), not the Compose Multiplatform
+         resource catalog the rest of the app uses. -->
+    <string name="widget_now_playing_label">Music — now playing</string>
+    <string name="widget_now_playing_description">Shows and controls what\'s playing on Music Assistant.</string>
 </resources>

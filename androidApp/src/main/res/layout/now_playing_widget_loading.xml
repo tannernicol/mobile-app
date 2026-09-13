@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Required placeholder RemoteViews layout: shown briefly before Glance's first
+     composition lands (and, on very old launchers, if it never does). Matches the
+     widget's own dark background so the placeholder never flashes light. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1C2024">
+
+    <ProgressBar
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="center"
+        android:indeterminateTint="#8DCDFF" />
+
+</FrameLayout>

@@ -11,11 +11,22 @@ import io.music_assistant.client.di.cleanupSingletons
 import io.music_assistant.client.di.initKoin
 import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.services.MediaNotificationManager
+import io.music_assistant.client.services.SharedMediaSessionManager
+import io.music_assistant.client.widget.NowPlayingWidgetUpdater
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.context.GlobalContext
 import org.koin.core.context.stopKoin
 import java.io.File
 
 class MyApplication : Application() {
+    // App-process-lifetime scope for work that must outlive any one service — see
+    // NowPlayingWidgetUpdater's kdoc for why the widget update can't live in
+    // MainMediaPlaybackService's own (service-lifetime) scope instead.
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override fun onCreate() {
         super.onCreate()
         val debuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -25,6 +36,7 @@ class MyApplication : Application() {
         createNotificationChannel(this)
         cleanupStaleLogFile()
         installCrashHandler()
+        NowPlayingWidgetUpdater(this, GlobalContext.get().get<SharedMediaSessionManager>()).start(appScope)
     }
 
     private fun cleanupStaleLogFile() {

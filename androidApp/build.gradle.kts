@@ -14,8 +14,8 @@ android {
         applicationId = "io.music_assistant.client"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 15
-        versionName = "0.14.0"
+        versionCode = 16
+        versionName = "0.14.1"
     }
     packaging {
         resources {
@@ -113,6 +113,8 @@ dependencies {
     implementation(libs.koin.androidx.compose)
     implementation(libs.androidx.media)
     implementation(libs.androidx.car.app)
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
     implementation(libs.coil)
     implementation(libs.kermit)
     debugImplementation(libs.compose.ui.tooling)

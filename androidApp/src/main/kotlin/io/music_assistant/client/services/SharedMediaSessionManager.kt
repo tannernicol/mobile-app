@@ -137,6 +137,12 @@ class SharedMediaSessionManager(
     private val _notificationArt = MutableStateFlow<NotificationArt?>(null)
     val notificationArt: StateFlow<NotificationArt?> = _notificationArt.asStateFlow()
 
+    // Same snapshot the notification renders from, republished for the home-screen
+    // widget (see io.music_assistant.client.widget.NowPlayingWidgetUpdater) so the two
+    // surfaces can never disagree. Null exactly when nothing has acquired the session.
+    private val _nowPlayingData = MutableStateFlow<MediaNotificationData?>(null)
+    val nowPlayingData: StateFlow<MediaNotificationData?> = _nowPlayingData.asStateFlow()
+
     // Browse/voice "play" requests are AA-specific (need AutoLibrary). A real AA host
     // registers a handler; transient SystemUI binds never do.
     interface AutoPlayHandler {
@@ -211,6 +217,17 @@ class SharedMediaSessionManager(
         return session.sessionToken
     }
 
+    /**
+     * The live session's token, or null while nothing has [acquire]d it (no foreground
+     * service running — nothing playing). The home-screen widget builds a
+     * [android.support.v4.media.session.MediaControllerCompat] from this to dispatch its
+     * transport buttons and its favorite tap through the exact same
+     * [MediaSessionCompat.Callback] the notification and Android Auto use — see
+     * [createCallback] — so the widget can never diverge from what those surfaces do.
+     */
+    @Synchronized
+    fun sessionToken(): MediaSessionCompat.Token? = mediaSession?.sessionToken
+
     @Synchronized
     fun release() {
         refCount--
@@ -221,6 +238,7 @@ class SharedMediaSessionManager(
             mediaSession?.release()
             mediaSession = null
             _notificationArt.value = null
+            _nowPlayingData.value = null
             refCount = 0
             currentError = null
             lastData = null
@@ -303,6 +321,7 @@ class SharedMediaSessionManager(
                 .debounce(timeoutMillis = 200)
                 .collect { (data, bitmap) ->
                     _notificationArt.value = NotificationArt(data.longItemId, bitmap)
+                    _nowPlayingData.value = data
                     // multiPlayer only gates the "(on <player>)" artist suffix, and
                     // playerName is already null for the local player — so always pass
                     // true to keep the remote-player suffix even for a single player.

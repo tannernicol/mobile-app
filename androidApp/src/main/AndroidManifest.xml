@@ -124,6 +124,20 @@
             android:name=".services.MainMediaPlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+        <!-- Home-screen now-playing widget (Jetpack Glance). Content is pushed reactively
+             by NowPlayingWidgetUpdater, not by this receiver's own onUpdate — see its
+             kdoc. updatePeriodMillis=0 in the widget info disables OS polling entirely. -->
+        <receiver
+            android:name=".widget.NowPlayingWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_now_playing_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/now_playing_widget_info" />
+        </receiver>
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
