@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Music Assistant</string>
+    <string name="app_name">Music</string>
     <!-- AppWidgetProviderInfo requires plain Android string resources (read by the
          system widget picker without our process running), not the Compose Multiplatform
          resource catalog the rest of the app uses. -->
