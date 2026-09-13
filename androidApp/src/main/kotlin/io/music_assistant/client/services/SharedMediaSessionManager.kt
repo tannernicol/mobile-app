@@ -24,13 +24,12 @@ import io.music_assistant.client.auto.toMediaDescription
 import io.music_assistant.client.auto.toUri
 import io.music_assistant.client.data.CarConnectionMonitor
 import io.music_assistant.client.data.MainDataSource
-import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.ResolvedChapter
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.LongFormSeekDefaults
-import io.music_assistant.client.data.model.client.items.canBeFavorited
+import io.music_assistant.client.data.model.client.items.isFavoritableTrack
 import io.music_assistant.client.data.model.client.presentationChapter
 import io.music_assistant.client.data.model.client.toAbsoluteSeekSeconds
 import io.music_assistant.client.data.withPresentationChapter
@@ -537,7 +536,7 @@ class SharedMediaSessionManager(
                     "ACTION_TOGGLE_FAVORITE" -> {
                         val pd = currentPlayer()
                         (pd?.queueInfo?.currentItem?.track as? AppMediaItem)
-                            ?.takeIf { it.mediaType == MediaType.TRACK && it.canBeFavorited }
+                            ?.takeIf { it.isFavoritableTrack }
                             ?.let { dataSource.toggleFavorite(it) }
                             // Radio: no track to toggle, just the stream's on-air song to add
                             // (favoriteCurrentlyPlaying guards support and metadata itself).

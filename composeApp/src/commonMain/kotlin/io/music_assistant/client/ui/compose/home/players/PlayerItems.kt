@@ -63,7 +63,7 @@ import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Audiobook
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.QualityTier
-import io.music_assistant.client.data.model.client.items.canBeFavorited
+import io.music_assistant.client.data.model.client.items.isFavoritableTrack
 import io.music_assistant.client.data.model.client.items.qualityTier
 import io.music_assistant.client.data.model.client.presentationChapter
 import io.music_assistant.client.data.model.client.toAbsoluteSeekSeconds
@@ -687,7 +687,7 @@ fun FullPlayerItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (currentTrack?.canBeFavorited == true) {
+            if (currentTrack?.isFavoritableTrack == true) {
                 val isFavorite = currentTrack.favorite == true
                 IconButton(
                     modifier = Modifier.size(favoriteSlot),

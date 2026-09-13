@@ -130,6 +130,21 @@ sealed class AppMediaItem {
 /** A quick favorite toggle is possible only when the add path has a [uri] to send. */
 val AppMediaItem.canBeFavorited: Boolean get() = uri != null
 
+/**
+ * Single track-only heart-eligibility predicate shared by the media notification
+ * ([io.music_assistant.client.services.MediaNotificationData]), the media session's
+ * ACTION_TOGGLE_FAVORITE handler, the full player heart row, and the home-screen
+ * widget — so all four surfaces agree on when a queue item's OWN favorite flag is the
+ * one to show and toggle, rather than each reimplementing the `mediaType == TRACK`
+ * guard separately. A radio station is favoritable via [canBeFavorited] too (it has a
+ * uri), but its favorite flag belongs to the STATION, not the on-air song — that case
+ * is a different, always-un-filled affordance gated by
+ * [io.music_assistant.client.data.hasFavoritableStreamTrack] /
+ * `MainDataSource.canFavoriteCurrentlyPlaying` instead.
+ */
+val AppMediaItem.isFavoritableTrack: Boolean
+    get() = mediaType == MediaType.TRACK && canBeFavorited
+
 fun PlayableItem.image(type: ImageType): ImageInfo? =
     images[type] ?: images[ImageType.MAIN] ?: images.firstNotNullOfOrNull { it.value }
 

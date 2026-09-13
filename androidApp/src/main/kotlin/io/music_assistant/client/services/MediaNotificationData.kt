@@ -1,12 +1,11 @@
 package io.music_assistant.client.services
 
 import android.os.SystemClock
-import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.ResolvedChapter
 import io.music_assistant.client.data.model.client.items.AppMediaItem
-import io.music_assistant.client.data.model.client.items.canBeFavorited
+import io.music_assistant.client.data.model.client.items.isFavoritableTrack
 import io.music_assistant.client.data.model.client.items.isLongFormSpokenContent
 
 // Elapsed time can drift up to 1s before we treat it as a real position change.
@@ -78,8 +77,7 @@ data class MediaNotificationData(
             shuffleEnabled = playerData.queueInfo?.shuffleEnabled
                 ?.takeIf { playerData.queueInfo?.isDynamicPlaylist != true },
             isLongFormContent = playerData.queueInfo?.currentItem?.track.isLongFormSpokenContent,
-            isFavoritableTrack = currentTrack
-                ?.let { it.mediaType == MediaType.TRACK && it.canBeFavorited } == true,
+            isFavoritableTrack = currentTrack?.isFavoritableTrack == true,
             isFavoritableStream = isFavoritableStream,
             // The station's own favorite flag would show a filled heart for an already-
             // favorited station even though nothing has been favorited for the on-air song,
